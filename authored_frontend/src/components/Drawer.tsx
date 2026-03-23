@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function Drawer(){
     return (
         <div
@@ -10,10 +12,10 @@ export default function Drawer(){
         }} 
         >
             <h3>Menu</h3>
-            <div>Dashboard</div>
-            <div>Grades</div>
-            <div>Agenda</div>
-            <div>Free Code</div>
+            <div><Link to="/">Dashboard</Link></div>
+            <div><Link to="/grades">Grades</Link></div>
+            <div><Link to="/agenda">Agenda</Link></div>
+            <div><Link to="/free-code">Free Code</Link></div>
         </div>
     )
 }
