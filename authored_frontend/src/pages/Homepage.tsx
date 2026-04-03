@@ -1,22 +1,18 @@
 import ClassCard from "../components/ClassCard";
+import PageHeader from "../components/PageHeader";
 
 function Dashboard() {
   return (
     <div>
-      <h1>My Classes</h1>
+      <PageHeader title="My Classes" />
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
           gap: "16px",
-          marginTop: "16px",
         }}
       >
-        <ClassCard className="Operating Systems" />
-        <ClassCard className="Artificial Intelligence" />
-        <ClassCard className="Networking" />
-        <ClassCard className="Cyber Security" />
-        <ClassCard className="Virtual, Augmented, and Mixed Reality" />
+        <ClassCard className="CS 101: Intro to Programming" classId="cs101" />
       </div>
     </div>
   );

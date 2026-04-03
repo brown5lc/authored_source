@@ -1,9 +1,9 @@
+import PageHeader from "../components/PageHeader";
+
 function Grades() {
   return (
     <div>
-      <div style={{ padding: "24px" }}>
-        <h1>Grades</h1>
-      </div>
+      <PageHeader title="Grades" />
     </div>
   );
 }
