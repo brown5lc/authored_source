@@ -54,7 +54,7 @@
   width: auto;
   max-width: 100%;
   margin: 0 auto;
-  text-align: center;
+  text-align: left;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -63,6 +63,11 @@
 
 body {
   margin: 0;
+}
+
+/* Monaco editor locked region decoration */
+.locked-line {
+  filter: saturate(0.25) brightness(0.75);
 }
 
 @keyframes pulse {

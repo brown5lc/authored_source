@@ -1,13 +1,18 @@
 import { NavLink } from 'react-router-dom';
-
-const NAV_ITEMS = [
-  { to: '/',          label: 'Dashboard' },
-  { to: '/grades',    label: 'Grades'    },
-  { to: '/agenda',    label: 'Agenda'    },
-  { to: '/free-code', label: 'Free Code' },
-];
+import { useUser } from '../context/UserContext';
+import { CLASSES } from '../data/classes';
 
 export default function Drawer() {
+  const { currentUser } = useUser();
+
+  const NAV_ITEMS = [
+    { to: '/',          label: 'Dashboard' },
+    { to: '/grades',    label: 'Grades'    },
+    ...(currentUser.role === 'student'
+      ? [{ to: '/agenda', label: 'Agenda' }]
+      : CLASSES.map((c) => ({ to: `/class/${c.id}`, label: c.id.toUpperCase() }))),
+    { to: '/free-code', label: 'Free Code' },
+  ];
   return (
     <nav
       style={{

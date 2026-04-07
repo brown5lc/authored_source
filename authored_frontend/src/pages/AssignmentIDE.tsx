@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
+import type { Monaco } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { loadPyodide } from 'pyodide';
 import type { PyodideInterface } from 'pyodide';
@@ -8,90 +9,115 @@ import { useTracking } from '../context/TrackingContext';
 import type { TrackingEvent } from '../context/TrackingContext';
 import { useUser } from '../context/UserContext';
 import TutorChat from '../components/TutorChat';
+import { API_BASE } from '../lib/api';
 
-const ASSIGNMENT_ID = 'hello-output';
+interface TestCase {
+  description: string;
+  input: string;
+  expectedOutput: string;
+}
 
-const STARTER_CODE = `# Hello, Output!
-# Complete each print statement below
-
-print()  # Print "Hello, World!"
-print()  # Print your name
-print()  # Print the sum of 7 + 3
-`;
-
-const PROMPT = {
-  title: 'Hello, Output!',
-  body: [
-    'Write a Python program that prints three lines:',
-    '',
-    '1. "Hello, World!"',
-    '2. Your name',
-    '3. The result of 7 + 3',
-  ],
-  expectedOutput: 'Hello, World!\nJane Doe\n10',
-};
-
-function storageKey(userId: string) {
-  return `authored_session_${userId}_${ASSIGNMENT_ID}`;
+interface Assignment {
+  id: string;
+  title: string;
+  subtitle: string;
+  prompt: string[];
+  starterCode: string;
+  dueDate: string;
+  points: number;
+  testCases: TestCase[];
+  allowTutor: boolean;
 }
 
 export default function AssignmentIDE() {
   const navigate = useNavigate();
+  const { classId = 'cs101', assignmentId } = useParams<{ classId: string; assignmentId: string }>();
   const { addEvent, clearEvents, initEvents, getEvents } = useTracking();
   const { currentUser } = useUser();
 
-  const [code, setCode] = useState(STARTER_CODE);
+  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [pyodide, setPyodide] = useState<PyodideInterface | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showTutor, setShowTutor] = useState(true);
+  const [showTutor, setShowTutor] = useState(false);
 
   const isPasteRef = useRef(false);
   const lastEditRef = useRef(0);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const isRevertingRef = useRef(false);
+  const decorationsRef = useRef<string[]>([]);
+  const editableRegionRef = useRef<{ before: number; after: number } | null>(null);
 
-  // Persists current tracking events to localStorage
-  const persistSession = useCallback(() => {
-    localStorage.setItem(storageKey(currentUser.id), JSON.stringify(getEvents()));
-  }, [currentUser.id, getEvents]);
+  function stripMarkers(code: string): string {
+    return code
+      .split('\n')
+      .filter((l) => l.trim() !== '# [editable]' && l.trim() !== '# [/editable]')
+      .join('\n');
+  }
 
-  // Wrapper: record event + immediately persist
-  const trackEvent = useCallback(
-    (event: TrackingEvent) => {
-      addEvent(event);
-      localStorage.setItem(storageKey(currentUser.id), JSON.stringify([...getEvents()]));
-    },
-    [addEvent, getEvents, currentUser.id]
-  );
+  function computeEditableRegion(starterCode: string): { before: number; after: number } | null {
+    const lines = starterCode.split('\n');
+    const startIdx = lines.findIndex((l) => l.trim() === '# [editable]');
+    const endIdx   = lines.findIndex((l) => l.trim() === '# [/editable]');
+    if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) return null;
+    const stripped     = lines.filter((l) => l.trim() !== '# [editable]' && l.trim() !== '# [/editable]');
+    const contentLines = endIdx - startIdx - 1;
+    return { before: startIdx, after: stripped.length - startIdx - contentLines };
+  }
 
-  // Keep a ref to trackEvent so Monaco's closure always uses the latest version
-  const trackEventRef = useRef(trackEvent);
-  useEffect(() => { trackEventRef.current = trackEvent; }, [trackEvent]);
-
-  // Load saved session when user changes (or on first mount)
+  // Fetch assignment metadata
   useEffect(() => {
+    if (!assignmentId) return;
+    fetch(`${API_BASE}/api/assignments/${assignmentId}`)
+      .then((r) => r.json())
+      .then((data: Assignment) => {
+        setAssignment(data);
+        editableRegionRef.current = computeEditableRegion(data.starterCode);
+        setCode(stripMarkers(data.starterCode));
+        setShowTutor(data.allowTutor ?? true);
+      })
+      .catch(() => {});
+  }, [assignmentId]);
+
+  // Load saved session from API (fall back to starterCode if none)
+  useEffect(() => {
+    if (!assignmentId || !assignment) return;
     isPasteRef.current = false;
     lastEditRef.current = 0;
 
-    const raw = localStorage.getItem(storageKey(currentUser.id));
-    if (raw) {
-      try {
-        const saved = JSON.parse(raw) as TrackingEvent[];
-        initEvents(saved);
-        const lastSnapshot = [...saved].reverse().find((e) => e.codeSnapshot);
-        if (lastSnapshot?.codeSnapshot) {
-          setCode(lastSnapshot.codeSnapshot);
-          editorRef.current?.setValue(lastSnapshot.codeSnapshot);
+    fetch(`${API_BASE}/api/submissions/${currentUser.id}/${assignmentId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.events?.length) {
+          initEvents(data.events);
+          const lastSnapshot = [...data.events].reverse().find((e: TrackingEvent) => e.codeSnapshot);
+          if (lastSnapshot?.codeSnapshot) {
+            const clean = stripMarkers(lastSnapshot.codeSnapshot);
+            setCode(clean);
+            editorRef.current?.setValue(clean);
+          }
+        } else {
+          clearEvents();
+          const clean = stripMarkers(assignment.starterCode);
+          setCode(clean);
+          editorRef.current?.setValue(clean);
         }
-      } catch {
+      })
+      .catch(() => {
         clearEvents();
-      }
-    } else {
-      clearEvents();
-      setCode(STARTER_CODE);
-      editorRef.current?.setValue(STARTER_CODE);
-    }
-  }, [currentUser.id, initEvents, clearEvents]);
+      });
+  }, [currentUser.id, assignmentId, assignment, initEvents, clearEvents]);
+
+  const trackEvent = useCallback(
+    (event: TrackingEvent) => {
+      addEvent(event);
+    },
+    [addEvent]
+  );
+
+  const trackEventRef = useRef(trackEvent);
+  useEffect(() => { trackEventRef.current = trackEvent; }, [trackEvent]);
 
   // Initialize Pyodide once
   useEffect(() => {
@@ -121,38 +147,109 @@ export default function AssignmentIDE() {
       });
     };
 
-    const handlePaste = (e: ClipboardEvent) => {
-      isPasteRef.current = true;
-      const pastedText = e.clipboardData?.getData('text') ?? '';
-      setTimeout(() => {
-        trackEventRef.current({
-          type: 'paste',
-          timestamp: Date.now(),
-          detail: pastedText,
-          codeSnapshot: editorRef.current?.getValue(),
-        });
-      }, 0);
-    };
-
     const handleCopy = () => {
       trackEventRef.current({ type: 'copy', timestamp: Date.now() });
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
-    document.addEventListener('paste', handlePaste);
     document.addEventListener('copy', handleCopy);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
-      document.removeEventListener('paste', handlePaste);
       document.removeEventListener('copy', handleCopy);
     };
   }, []);
 
-  function handleEditorMount(editorInstance: editor.IStandaloneCodeEditor) {
+  function applyDecorations(editorInstance: editor.IStandaloneCodeEditor, monacoApi: Monaco) {
+    const model  = editorInstance.getModel();
+    const region = editableRegionRef.current;
+    if (!model || !region) {
+      decorationsRef.current = editorInstance.deltaDecorations(decorationsRef.current, []);
+      return;
+    }
+    const total      = model.getLineCount();
+    const startLine  = region.before + 1;
+    const endLine    = total - region.after;
+    const decors: editor.IModelDeltaDecoration[] = [];
+
+    if (startLine > 1) {
+      decors.push({
+        range: new monacoApi.Range(1, 1, startLine - 1, 1),
+        options: { isWholeLine: true, inlineClassName: 'locked-line' },
+      });
+    }
+    if (endLine < total) {
+      decors.push({
+        range: new monacoApi.Range(endLine + 1, 1, total, 1),
+        options: { isWholeLine: true, inlineClassName: 'locked-line' },
+      });
+    }
+
+    decorationsRef.current = editorInstance.deltaDecorations(decorationsRef.current, decors);
+  }
+
+  function handleEditorMount(editorInstance: editor.IStandaloneCodeEditor, monacoApi: Monaco) {
     editorRef.current = editorInstance;
 
-    editorInstance.onDidChangeModelContent(() => {
+    applyDecorations(editorInstance, monacoApi);
+
+    // Monaco intercepts paste before it reaches document, so detect it here
+    editorInstance.onKeyDown((e) => {
+      if ((e.ctrlKey || e.metaKey) && e.keyCode === monacoApi.KeyCode.KeyV) {
+        isPasteRef.current = true;
+        navigator.clipboard.readText()
+          .then((pastedText) => {
+            // Delay so the content change fires first and isPasteRef suppresses the edit event
+            setTimeout(() => {
+              trackEventRef.current({
+                type: 'paste',
+                timestamp: Date.now(),
+                detail: pastedText,
+                codeSnapshot: editorRef.current?.getValue(),
+              });
+            }, 50);
+          })
+          .catch(() => {
+            setTimeout(() => {
+              trackEventRef.current({
+                type: 'paste',
+                timestamp: Date.now(),
+                codeSnapshot: editorRef.current?.getValue(),
+              });
+            }, 50);
+          });
+      }
+    });
+
+    editorInstance.onDidChangeModelContent((e) => {
+      if (isRevertingRef.current) return;
+
+      const model  = editorInstance.getModel();
+      const region = editableRegionRef.current;
+      if (!model || !region) return;
+
+      // Derive the old total line count from the line delta of the changes
+      const lineDelta = e.changes.reduce((sum, c) => {
+        return sum + c.text.split('\n').length - (c.range.endLineNumber - c.range.startLineNumber + 1);
+      }, 0);
+      const oldTotal    = model.getLineCount() - lineDelta;
+      const startLine   = region.before + 1;          // always fixed
+      const oldEndLine  = oldTotal - region.after;    // in old coordinates
+
+      const touchedLocked = e.changes.some(
+        (c) => c.range.startLineNumber < startLine || c.range.endLineNumber > oldEndLine
+      );
+
+      if (touchedLocked) {
+        isRevertingRef.current = true;
+        editorInstance.trigger('locked', 'undo', null);
+        isRevertingRef.current = false;
+        applyDecorations(editorInstance, monacoApi);
+        return;
+      }
+
+      applyDecorations(editorInstance, monacoApi);
+
       if (isPasteRef.current) {
         isPasteRef.current = false;
         return;
@@ -183,16 +280,56 @@ export default function AssignmentIDE() {
     }
   }
 
-  function handleSubmit() {
+  async function autograde(testCases: TestCase[]): Promise<number | null> {
+    if (!pyodide || testCases.length === 0) return null;
+
+    let passed = 0;
+    for (const tc of testCases) {
+      let stdout = '';
+      pyodide.setStdout({ batched: (t: string) => { stdout += t + '\n'; } });
+
+      const preamble = tc.input
+        ? `import sys\nfrom io import StringIO\nsys.stdin = StringIO(${JSON.stringify(tc.input)})\n`
+        : '';
+
+      try {
+        await pyodide.runPythonAsync(preamble + code);
+        if (stdout.trim() === tc.expectedOutput.trim()) passed++;
+      } catch {
+        // test case fails on error
+      }
+    }
+
+    // Restore stdout for the output panel
+    pyodide.setStdout({ batched: (t: string) => setOutput((p) => p + t + '\n') });
+
+    return Math.round((passed / testCases.length) * (assignment?.points ?? 0));
+  }
+
+  async function handleSubmit() {
+    if (!assignmentId || !assignment) return;
     trackEvent({ type: 'submit', timestamp: Date.now(), codeSnapshot: code });
-    persistSession();
-    navigate('/class/cs101');
+    const events = getEvents();
+
+    const score = await autograde(assignment.testCases);
+
+    await fetch(`${API_BASE}/api/submissions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUser.id, assignmentId, events, score }),
+    }).catch(() => {});
+
+    navigate(`/class/${classId}`);
+  }
+
+  if (!assignment) {
+    return <p style={{ color: '#888' }}>Loading assignment...</p>;
   }
 
   return (
     <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 112px)' }}>
 
-      {/* IDE column — self-contained, never affected by tutor visibility */}
+      {/* IDE column */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 
         {/* Header */}
@@ -206,27 +343,29 @@ export default function AssignmentIDE() {
           }}
         >
           <div>
-            <h2 style={{ margin: 0 }}>Hello, Output!</h2>
+            <h2 style={{ margin: 0 }}>{assignment.title}</h2>
             <p style={{ margin: '2px 0 0', color: '#888', fontSize: 13 }}>
-              CS 101 · Print Statements · 10 pts · working as{' '}
+              {classId.toUpperCase()} · {assignment.subtitle ? `${assignment.subtitle} · ` : ''}{assignment.points} pts · working as{' '}
               <span style={{ color: currentUser.color }}>{currentUser.name}</span>
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              onClick={() => setShowTutor((v) => !v)}
-              style={{
-                padding: '8px 14px',
-                borderRadius: 8,
-                border: `1px solid ${showTutor ? '#693ed6' : '#333'}`,
-                background: showTutor ? 'rgba(105,62,214,0.15)' : 'transparent',
-                color: showTutor ? '#a87df0' : '#666',
-                cursor: 'pointer',
-                fontSize: 13,
-              }}
-            >
-              AI Tutor
-            </button>
+            {assignment.allowTutor && (
+              <button
+                onClick={() => setShowTutor((v) => !v)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  border: `1px solid ${showTutor ? '#693ed6' : '#333'}`,
+                  background: showTutor ? 'rgba(105,62,214,0.15)' : 'transparent',
+                  color: showTutor ? '#a87df0' : '#666',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                }}
+              >
+                AI Tutor
+              </button>
+            )}
             <button
               onClick={handleRun}
               disabled={loading}
@@ -272,8 +411,8 @@ export default function AssignmentIDE() {
               overflowY: 'auto',
             }}
           >
-            <h3 style={{ margin: '0 0 12px' }}>{PROMPT.title}</h3>
-            {PROMPT.body.map((line, i) =>
+            <h3 style={{ margin: '0 0 12px' }}>{assignment.title}</h3>
+            {assignment.prompt.map((line, i) =>
               line === '' ? (
                 <br key={i} />
               ) : (
@@ -282,22 +421,6 @@ export default function AssignmentIDE() {
                 </p>
               )
             )}
-            <div style={{ marginTop: 20 }}>
-              <p style={{ fontSize: 12, color: '#888', margin: '0 0 6px' }}>Expected output:</p>
-              <pre
-                style={{
-                  background: '#111',
-                  padding: '10px',
-                  borderRadius: 6,
-                  fontSize: 12,
-                  color: '#aaffaa',
-                  margin: 0,
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {PROMPT.expectedOutput}
-              </pre>
-            </div>
           </div>
 
           {/* Editor + Output */}
@@ -333,8 +456,12 @@ export default function AssignmentIDE() {
         </div>
       </div>
 
-      {/* Tutor column — sibling to IDE, never inside it */}
-      <TutorChat currentCode={code} visible={showTutor} />
+      {/* Tutor column */}
+      <TutorChat
+        currentCode={code}
+        visible={showTutor && assignment.allowTutor}
+        assignment={{ title: assignment.title, prompt: assignment.prompt }}
+      />
     </div>
   );
 }

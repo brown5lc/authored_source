@@ -1,24 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import Anthropic from "@anthropic-ai/sdk";
 
-const SYSTEM_PROMPT = `You are a Socratic coding tutor embedded inside a student's Python IDE. The student is working on this assignment:
+function buildSystemPrompt(title: string, prompt: string[]): string {
+  return `You are a Socratic coding tutor embedded inside a student's Python IDE. The student is working on this assignment:
 
-**Hello, Output!**
-Write a Python program that prints three lines:
-1. "Hello, World!"
-2. Your name
-3. The result of 7 + 3
+**${title}**
+${prompt.filter((l) => l !== '').join('\n')}
 
 Strict rules, never break these:
 - NEVER write code for the student or complete their code
 - NEVER give the direct answer
-- Guide with questions: "What does print() do?", "What happens if you put text inside the parentheses?"
+- Guide with questions that lead them to the answer themselves
 - If they're stuck, break the problem into the smallest possible next step
 - Acknowledge what they've done correctly before pointing out what's wrong
-- Be warm, encouraging, and concise — 1 to 3 sentences per reply
+- Be direct and concise — 2 to 4 sentences, no filler, no emojis
+- Don't open with praise or enthusiasm; just get to the point
 - If they paste code, ask them questions about it rather than fixing it
 
 You can see their current code when they share it. Help them think, not copy.`;
+}
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -28,7 +28,15 @@ function getClient() {
   return new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 }
 
-export default function TutorChat({ currentCode, visible }: { currentCode: string; visible: boolean }) {
+export default function TutorChat({
+  currentCode,
+  visible,
+  assignment,
+}: {
+  currentCode: string;
+  visible: boolean;
+  assignment: { title: string; prompt: string[] };
+}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streamingText, setStreamingText] = useState("");
@@ -37,6 +45,15 @@ export default function TutorChat({ currentCode, visible }: { currentCode: strin
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<Anthropic.MessageParam[]>([]);
+
+  // Reset conversation when the assignment changes
+  useEffect(() => {
+    setMessages([]);
+    setInput("");
+    setStreamingText("");
+    setError("");
+    historyRef.current = [];
+  }, [assignment.title]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -66,7 +83,7 @@ export default function TutorChat({ currentCode, visible }: { currentCode: strin
       const stream = client.messages.stream({
         model: "claude-haiku-4-5",
         max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(assignment.title, assignment.prompt),
         messages: historyRef.current,
       });
 
@@ -257,7 +274,6 @@ export default function TutorChat({ currentCode, visible }: { currentCode: strin
           Enter to send · Shift+Enter for new line
         </p>
       </div>
-
     </div>
   );
 }
