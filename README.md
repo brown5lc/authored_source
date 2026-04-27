@@ -23,7 +23,7 @@
 
 ## 1. Project Description
 
-### 400-Character Abstract
+### Abstract
 
 Authored is a lightweight web-based IDE for university programming courses. It lets students complete Python assignments in the browser while instructors create assignments, review submissions, and inspect an activity timeline that flags copy, paste, page-leaving, and other suspicious workflow patterns.
 
