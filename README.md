@@ -77,35 +77,36 @@ Authored uses a web interface with a top navigation bar, a side drawer, and page
 The homepage acts as the starting point for the user. It provides access to course-related pages and gives the user a central place to navigate through the system.
 
 **Screenshot:**  
-_Add screenshot here._
+<img width="1490" height="880" alt="image" src="https://github.com/user-attachments/assets/958d43a1-d29b-40f3-ae0e-b2cbe9ec69f1" />
 
 #### Class Page
 
 The class page shows assignments and class-specific information. A student can use this page to find assignments, while a professor or TA can use it to access assignment management and review tools.
 
 **Screenshot:**  
-_Add screenshot here._
+<img width="1490" height="880" alt="image" src="https://github.com/user-attachments/assets/bf2b10e1-206b-4b87-9bc2-abf58e79e55e" />
+<img width="1490" height="880" alt="image" src="https://github.com/user-attachments/assets/47b06c6f-aab3-4c65-a2d5-4c23700c7bbf" />
 
 #### Create Assignment Page
 
 The Create Assignment page lets an instructor create or edit a programming assignment. It includes fields for assignment title, prompt, starter code, due date, points, test cases, and whether the AI tutor is allowed.
 
 **Screenshot:**  
-_Add screenshot here._
+<img width="1490" height="880" alt="image" src="https://github.com/user-attachments/assets/3259007a-de72-4afa-8d99-f57fc9a44fcb" />
 
 #### Assignment IDE
 
 The Assignment IDE is the main student coding environment. It includes the assignment prompt, Monaco code editor, run button, output panel, submit button, and optional AI tutor panel. Python code runs in the browser using Pyodide, so the student can test their work without needing a local Python installation.
 
 **Screenshot:**  
-_Add screenshot here._
+<img width="1490" height="880" alt="image" src="https://github.com/user-attachments/assets/95600a3e-b6e2-40de-ab21-d81a99bbb62e" />
 
 #### Timeline Review Page
 
 The Timeline page is the main instructor/TA review tool. It shows the student’s activity history, code snapshots, event markers, code growth, suspicious activity analysis, and grading fields. The goal is not to automatically accuse a student of cheating, but to give instructors better context when reviewing submissions.
 
 **Screenshot:**  
-_Add screenshot here._
+<img width="1490" height="880" alt="image" src="https://github.com/user-attachments/assets/5bc48b2d-c6de-4c96-9111-80db548220ec" />
 
 ### Basic User Flow
 
