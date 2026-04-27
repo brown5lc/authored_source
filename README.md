@@ -238,8 +238,7 @@ The spring final presentation is included here:
 
 ## 6. Final Expo Poster
 
-The final expo poster is included here:
-
+The image below is the final expo poster used to present Authored at the senior design expo.
 <img width="4032" height="4608" alt="brown5lc_EXPO" src="https://github.com/user-attachments/assets/8575ee5f-535b-466c-9624-9d8ce98ca144" />
 
 ---
