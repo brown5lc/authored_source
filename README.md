@@ -253,7 +253,7 @@ The final expo poster is included here:
 The initial self-assessment from the fall semester is included here:
 
 **Initial Self-Assessment Link:**  
-_Add link here._
+https://github.com/brown5lc/authored/blob/main/Assignment%203.md
 
 ### Final Self-Assessment
 
