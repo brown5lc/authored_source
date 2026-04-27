@@ -242,7 +242,6 @@ If the file is stored in the repository, link it directly here.
 
 The final expo poster is included here:
 
-**Poster Link:**  
 <img width="4032" height="4608" alt="brown5lc_EXPO" src="https://github.com/user-attachments/assets/8575ee5f-535b-466c-9624-9d8ce98ca144" />
 
 ---
@@ -261,9 +260,8 @@ _Add link here._
 The final self-assessment from the spring semester is included here:
 
 **Final Self-Assessment Link:**  
-_Add link here._
+[Final Self-Assessment.pdf](https://github.com/user-attachments/files/27112133/Final.Self-Assessment.pdf)
 
-Confidential team assessments are not included.
 
 ---
 
