@@ -243,9 +243,7 @@ If the file is stored in the repository, link it directly here.
 The final expo poster is included here:
 
 **Poster Link:**  
-_Add link to final expo poster here._
-
-If the poster is stored in the repository, link it directly here.
+<img width="4032" height="4608" alt="brown5lc_EXPO" src="https://github.com/user-attachments/assets/8575ee5f-535b-466c-9624-9d8ce98ca144" />
 
 ---
 
