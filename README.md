@@ -232,9 +232,7 @@ Not yet. The prototype demonstrates the core idea, but deployment, security, aut
 The spring final presentation is included here:
 
 **Presentation Link:**  
-_Add link to final presentation here._
-
-If the file is stored in the repository, link it directly here.
+[Spring Final PPT Presentation.pdf](https://github.com/user-attachments/files/27112250/Senior.Design.Presentation.-.Liam.Brown.pdf)
 
 ---
 
